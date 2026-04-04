@@ -12,7 +12,7 @@
 **A full-stack content-based movie recommendation engine built on 45,000+ films.**  
 Combines TF-IDF vectorization with live TMDB metadata to deliver intelligent, poster-rich recommendations.
 
-[🚀 Live Demo]([https://movie-rec-466x.onrender.com](https://movie-recommendation-system-3e9k.onrender.com)) · [📂 GitHub](https://github.com/kushhcodes/movie-recommendation-system) · [📬 Contact](mailto:your@email.com)
+[🚀 Live Demo](https://movie-recommendation-system-3e9k.onrender.com) · [📂 GitHub](https://github.com/kushhcodes/movie-recommendation-system) · [📬 Contact](mailto:your@email.com)
 
 </div>
 
