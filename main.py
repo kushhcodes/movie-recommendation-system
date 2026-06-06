@@ -1,4 +1,5 @@
 import os
+import asyncio
 import pickle
 from typing import Optional, List, Dict, Any, Tuple
 
@@ -91,30 +92,50 @@ def make_img_url(path: Optional[str]) -> Optional[str]:
     return f"{TMDB_IMG_500}{path}"
 
 
-async def tmdb_get(path: str, params: Dict[str, Any]) -> Dict[str, Any]:
+async def tmdb_get(path: str, params: Dict[str, Any], retries: int = 3) -> Dict[str, Any]:
     """
-    Safe TMDB GET:
-    - Network errors -> 502
+    Safe TMDB GET with retries for transient network errors:
+    - Network errors -> 502 (after retries)
     - TMDB API errors -> 502 with detail
     """
     q = dict(params)
     q["api_key"] = TMDB_API_KEY
 
-    try:
-        async with httpx.AsyncClient(timeout=20) as client:
-            r = await client.get(f"{TMDB_BASE}{path}", params=q)
-    except httpx.RequestError as e:
+    last_exception = None
+    last_response = None
+
+    for attempt in range(retries):
+        try:
+            async with httpx.AsyncClient(timeout=20) as client:
+                r = await client.get(f"{TMDB_BASE}{path}", params=q)
+            last_response = r
+            
+            if r.status_code == 200:
+                return r.json()
+            
+            # Non-transient client errors (except 429 rate limit) should not be retried
+            if 400 <= r.status_code < 500 and r.status_code != 429:
+                raise HTTPException(
+                    status_code=502, detail=f"TMDB error {r.status_code}: {r.text}"
+                )
+        except httpx.RequestError as e:
+            last_exception = e
+        
+        # Exponential backoff: sleep 0.5s, 1s, etc.
+        await asyncio.sleep(0.5 * (attempt + 1))
+
+    if last_exception:
         raise HTTPException(
             status_code=502,
-            detail=f"TMDB request error: {type(e).__name__} | {repr(e)}",
+            detail=f"TMDB request error after {retries} retries: {type(last_exception).__name__} | {repr(last_exception)}",
         )
-
-    if r.status_code != 200:
+    
+    if last_response is not None:
         raise HTTPException(
-            status_code=502, detail=f"TMDB error {r.status_code}: {r.text}"
+            status_code=502, detail=f"TMDB error {last_response.status_code} after {retries} retries: {last_response.text}"
         )
-
-    return r.json()
+        
+    raise HTTPException(status_code=502, detail="TMDB request failed with unknown error")
 
 
 async def tmdb_cards_from_results(
