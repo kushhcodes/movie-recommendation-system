@@ -1,8 +1,31 @@
+import os
 import requests
+# pyrefly: ignore [missing-import]
 import streamlit as st
+from dotenv import load_dotenv
+
+load_dotenv()
+
+@st.cache_resource
+def get_api_base() -> str:
+    # 1. Check env variable
+    env_base = os.getenv("API_BASE")
+    if env_base:
+        return env_base.rstrip("/")
+    
+    # 2. Check if local FastAPI backend is running
+    try:
+        response = requests.get("http://127.0.0.1:8000/health", timeout=0.5)
+        if response.status_code == 200:
+            return "http://127.0.0.1:8000"
+    except Exception:
+        pass
+    
+    # 3. Fallback to Render hosted backend
+    return "https://movie-recommendation-system-3e9k.onrender.com"
 
 # CONFIG
-API_BASE = "https://movie-recommendation-system-3e9k.onrender.com/" or "http://127.0.0.1:8000"
+API_BASE = get_api_base()
 TMDB_IMG = "https://image.tmdb.org/t/p/w500"
 
 st.set_page_config(page_title="Movie Recommender", page_icon="🎬", layout="wide")
